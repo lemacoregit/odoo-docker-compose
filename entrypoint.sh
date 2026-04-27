@@ -13,6 +13,12 @@ fi
 : ${USER:=${DB_ENV_POSTGRES_USER:=${POSTGRES_USER:='odoo'}}}
 : ${PASSWORD:=${DB_ENV_POSTGRES_PASSWORD:=${POSTGRES_PASSWORD:='odoo'}}}
 
+# Install Python requirements from mounted requirements.txt
+if [ -f /etc/odoo/requirements.txt ]; then
+    echo "Installing Python requirements..."
+    pip install --quiet --no-cache-dir --break-system-packages --root-user-action=ignore -r /etc/odoo/requirements.txt
+fi
+
 DB_ARGS=()
 function check_config() {
     param="$1"
