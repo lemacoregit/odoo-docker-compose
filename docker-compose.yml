@@ -16,6 +16,7 @@ services:
       PGDATA: /var/lib/postgresql/data
     volumes:
       - ./etc/postgres:/var/lib/postgresql/data
+      - ./etc/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB:-postgres}"]
       interval: 10s
