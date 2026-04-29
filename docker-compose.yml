@@ -34,7 +34,7 @@ services:
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
-    container_name: pgbouncer-odoo
+    container_name: pgbouncer-lema
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -74,7 +74,7 @@ services:
 
   redis:
     image: redis:8.2.5
-    container_name: redis-odoo-session
+    container_name: redis-lema-session
     ports:
       - "${REDIS_EXTERNAL_PORT}:6379"
     command:
