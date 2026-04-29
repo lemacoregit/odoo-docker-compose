@@ -1,0 +1,10 @@
+# -----------------------
+# | Add Python packages |
+# -----------------------
+# To install below packages at startup, uncomment this line in "docker-compose.yml" file!
+# - ./entrypoint.sh:/entrypoint.sh
+# then down the docker container ($ docker-compose down) and up it again ($ docker-compose up -d).
+# -----------------------
+paramiko==2.7.2 # for auto_backup module
+redis==4.5.4 # for lm_session_redis module
+docker==7.1.0 # for demo_provisioner — Docker SDK (no binary required)

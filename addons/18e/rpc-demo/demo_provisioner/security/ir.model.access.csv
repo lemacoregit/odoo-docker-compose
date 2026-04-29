@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_demo_registry_admin,demo.registry (Admin),model_demo_registry,base.group_system,1,1,1,1
+access_demo_registry_user,demo.registry (User),model_demo_registry,base.group_user,1,0,0,0
+access_demo_server_admin,demo.server (Admin),model_demo_server,base.group_system,1,1,1,1
+access_demo_server_user,demo.server (User),model_demo_server,base.group_user,1,0,0,0

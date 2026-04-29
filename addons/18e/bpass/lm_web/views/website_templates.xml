@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="lm_web.layout_inherit" inherit_id="website.layout">
+        <xpath expr="//div[hasclass('o_frontend_to_backend_apps_menu')]" position="replace">
+            <div class="dropdown-menu o_frontend_to_backend_apps_menu" role="menu">
+                <a role="menuitem" class="dropdown-item" t-esc="menu['name']"
+                   t-as="menu" t-foreach="env['ir.ui.menu'].with_context(force_action=True).load_menus_root()['children']"
+                   t-attf-href="/#{env['ir.config_parameter'].sudo().get_param('web.base.sorturl')}/action-#{menu['action'] and menu['action'].split(',')[1] or ''}"/>
+            </div>
+        </xpath>
+    </template>
+</odoo>

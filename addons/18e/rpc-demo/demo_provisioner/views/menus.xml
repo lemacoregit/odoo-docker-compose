@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem id="menu_demo_root"
+              name="Demo Manager"
+              sequence="90"
+              groups="base.group_system"/>
+
+    <menuitem id="menu_demo_registry"
+              name="Demo List"
+              parent="menu_demo_root"
+              action="action_demo_registry"
+              sequence="10"/>
+
+    <menuitem id="menu_demo_server"
+              name="Demo Servers"
+              parent="menu_demo_root"
+              action="action_demo_server"
+              sequence="20"
+              groups="base.group_system"/>
+
+</odoo>
