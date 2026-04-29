@@ -221,7 +221,7 @@ shell-demo18e:
 	$(COMPOSE) exec odoo-demo18e bash
 
 health-demo18e:
-	@PORT=$${ODOO_DEMO18E_HTTP_PORT:-81118}; \
+	@PORT=$${ODOO_DEMO18E_HTTP_PORT:-8118}; \
 	echo "Checking http://localhost:$$PORT/web/health ..."; \
 	HTTP=$$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" "http://localhost:$$PORT/web/health" 2>/dev/null || echo "000"); \
 	if [ "$$HTTP" = "200" ]; then \
@@ -250,7 +250,7 @@ shell-demo18c:
 	$(COMPOSE) exec odoo-demo18c bash
 
 health-demo18c:
-	@PORT=$${ODOO_DEMO18C_HTTP_PORT:-81218}; \
+	@PORT=$${ODOO_DEMO18C_HTTP_PORT:-8218}; \
 	echo "Checking http://localhost:$$PORT/web/health ..."; \
 	HTTP=$$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" "http://localhost:$$PORT/web/health" 2>/dev/null || echo "000"); \
 	if [ "$$HTTP" = "200" ]; then \
