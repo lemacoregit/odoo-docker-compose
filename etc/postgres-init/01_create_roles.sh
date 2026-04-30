@@ -9,7 +9,7 @@ for ROLE in lema demo18e demo18c; do
         echo "Role '$ROLE' already exists — skipping."
     else
         psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-            -c "CREATE ROLE \"$ROLE\" WITH LOGIN PASSWORD \$pw\$${POSTGRES_PASSWORD}\$pw\$;"
+            -c "CREATE ROLE \"$ROLE\" WITH LOGIN CREATEDB PASSWORD \$pw\$${POSTGRES_PASSWORD}\$pw\$;"
         echo "Role '$ROLE' created."
     fi
 done
