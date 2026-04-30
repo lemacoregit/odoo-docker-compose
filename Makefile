@@ -295,10 +295,10 @@ logs-redis:
 .PHONY: db-shell db-shell-direct db-list db-backup db-restore
 
 db-shell:
-	@echo "$(BLU)Connecting via PgBouncer (port $${PG_BOUNCER_PORT:-8765})...$(RST)"
+	@echo "$(BLU)Connecting via PgBouncer (port $${PG_BOUNCER_PORT:-8613})...$(RST)"
 	$(COMPOSE) exec pgbouncer psql \
 	  -h localhost \
-	  -p $${PG_BOUNCER_PORT:-8765} \
+	  -p $${PG_BOUNCER_PORT:-8613} \
 	  -U $${POSTGRES_USER:-odoo} \
 	  $${POSTGRES_DB:-postgres}
 

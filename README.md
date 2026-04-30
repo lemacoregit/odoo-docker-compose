@@ -22,7 +22,7 @@ Three isolated Odoo instances share a single PostgreSQL database server and Redi
                                 │
                     ┌───────────▼───────────┐
                     │       PgBouncer        │
-                    │  Session pool · :8765  │
+                    │  Session pool · :8613  │
                     └───────────┬───────────┘
                                 │
                     ┌───────────▼───────────┐
