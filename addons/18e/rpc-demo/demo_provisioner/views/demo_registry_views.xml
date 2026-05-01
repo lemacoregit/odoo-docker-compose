@@ -32,7 +32,13 @@
                     <button name="button_set_to_draft"
                             type="object"
                             string="Set to Draft"
-                            invisible="state != 'deactivated'"/>
+                            invisible="state not in ('deactivated','error')"/>
+                    <button name="button_force_cancel"
+                            type="object"
+                            string="Force Cancel"
+                            class="btn-warning"
+                            invisible="state not in ('provisioning','error')"
+                            confirm="This will cancel the provisioning and drop any partial database. Reset to Draft?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,active,deactivated"/>
                 </header>

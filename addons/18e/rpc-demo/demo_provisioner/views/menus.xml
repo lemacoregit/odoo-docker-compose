@@ -4,6 +4,7 @@
     <menuitem id="menu_demo_root"
               name="Demo Manager"
               sequence="90"
+              web_icon="demo_provisioner,static/description/icon.png"
               groups="base.group_system"/>
 
     <menuitem id="menu_demo_registry"

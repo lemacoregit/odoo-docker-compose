@@ -594,10 +594,39 @@ class DemoRegistry(models.Model):
     def button_set_to_draft(self):
         """Allow re-provisioning by resetting state to draft."""
         self.ensure_one()
-        if self.state != 'deactivated':
-            raise exceptions.UserError('Only deactivated demos can be set back to draft.')
+        if self.state not in ('deactivated', 'error'):
+            raise exceptions.UserError('Only deactivated or error demos can be set back to draft.')
         self.write({'state': 'draft'})
         self.message_post(body='Demo set back to draft.')
+
+    def button_force_cancel(self):
+        """
+        Force-cancel a stuck provisioning or clean up after an error.
+        Drops the partial database if it exists, then resets to draft.
+        Safe to call even if the DB was never created.
+        """
+        self.ensure_one()
+        if self.state not in ('provisioning', 'error'):
+            raise exceptions.UserError('Force cancel is only available during provisioning or error state.')
+
+        log_lines = [self.provision_log or '']
+        log_lines.append('\n[WARN] Force cancel requested by user.')
+
+        if self.db_name:
+            try:
+                self._terminate_and_drop_db()
+                log_lines.append(f'[INFO] Partial database "{self.db_name}" dropped.')
+                _logger.warning('Force cancel: dropped partial DB %s for %s', self.db_name, self.name)
+            except Exception as e:
+                log_lines.append(f'[INFO] Could not drop database (may not exist yet): {e}')
+
+        self.write({
+            'state': 'draft',
+            'token': False,
+            'token_expiry': False,
+            'provision_log': '\n'.join(log_lines),
+        })
+        self.message_post(body='Provisioning force-cancelled. Record reset to Draft.')
 
     # ── Scheduled Action ────────────────────────────────────────────────────
 
