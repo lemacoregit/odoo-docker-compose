@@ -72,8 +72,6 @@ help:
 	@echo "$(BOLD)Infrastructure$(RST)"
 	@echo "  start-db       Start PostgreSQL + PgBouncer"
 	@echo "  stop-db        Stop PostgreSQL + PgBouncer"
-	@echo "  db-init        Run db-init: ensure PostgreSQL roles exist"
-	@echo "  logs-db-init   Tail logs for db-init"
 	@echo "  start-redis    Start Redis"
 	@echo "  stop-redis     Stop Redis"
 	@echo "  restart-redis  Restart Redis"
@@ -274,28 +272,13 @@ health-demo18c:
 # INFRASTRUCTURE
 # =============================================================================
 .PHONY: start-db stop-db start-redis stop-redis restart-redis
-.PHONY: logs-db logs-pgbouncer logs-redis db-init logs-db-init
+.PHONY: logs-db logs-pgbouncer logs-redis
 
 start-db:
 	$(COMPOSE) up -d db pgbouncer
 
 stop-db:
 	$(COMPOSE) stop db pgbouncer
-
-db-init:
-	@echo "$(BLU)Running db-init: ensuring PostgreSQL roles exist...$(RST)"
-	$(COMPOSE) up db-init
-	@EXIT=$$($(COMPOSE) ps db-init --format json 2>/dev/null | python3 -c \
-	  "import sys,json; d=json.load(sys.stdin); print(d[0].get('ExitCode',0) if isinstance(d,list) else d.get('ExitCode',0))" \
-	  2>/dev/null || echo 0); \
-	if [ "$$EXIT" = "0" ]; then \
-	  echo "$(GRN)db-init completed successfully.$(RST)"; \
-	else \
-	  echo "$(RED)db-init failed (exit code $$EXIT). Check: make logs-db-init$(RST)"; exit 1; \
-	fi
-
-logs-db-init:
-	$(COMPOSE) logs --tail=50 db-init
 
 start-redis:
 	$(COMPOSE) up -d redis
