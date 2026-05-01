@@ -33,6 +33,25 @@ services:
         tag: "{{.Name}}"
     restart: always
 
+  db-init:
+    image: postgres:15
+    container_name: postgres-init-roles
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_USER: '${POSTGRES_USER}'
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      POSTGRES_DB: '${POSTGRES_DB:-postgres}'
+      PG_HOST: db
+    volumes:
+      - ./etc/postgres-init/01_create_roles.sh:/init.sh:ro
+    command: ["bash", "/init.sh"]
+    networks:
+      - lema-odoo-net
+    restart: on-failure
+
   pgbouncer:
     image: edoburu/pgbouncer:latest
     container_name: pgbouncer-lema
@@ -57,6 +76,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U ${POSTGRES_USER}"]
       interval: 10s
@@ -117,6 +138,8 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     ports:
       - "${ODOO_LEMA_HTTP_PORT}:8069"
       - "${ODOO_LEMA_LONGPOLLING_PORT}:8072"
@@ -178,6 +201,8 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     ports:
       - "${ODOO_DEMO18E_HTTP_PORT}:8069"
       - "${ODOO_DEMO18E_LONGPOLLING_PORT}:8072"
@@ -239,6 +264,8 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     ports:
       - "${ODOO_DEMO18C_HTTP_PORT}:8069"
       - "${ODOO_DEMO18C_LONGPOLLING_PORT}:8072"
@@ -274,6 +301,7 @@ services:
       - ./addons/18c/default:/mnt/18c/default-addons
       - ./addons/18c/demo/apps1:/mnt/18c/demo-addons/apps1
       - ./addons/18c/demo/apps2:/mnt/18c/demo-addons/apps2
+      - ./addons/18c/demo/ezra-shop:/mnt/18c/demo-addons/ezra-shop
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/health || exit 1"]
       interval: 30s

@@ -33,11 +33,12 @@ help:
 	@echo "$(BLU)════════════════════════════════════════════════════════$(RST)"
 	@echo ""
 	@echo "$(BOLD)Environment$(RST)"
-	@echo "  setup          Copy .env.example to .env (first-time setup)"
+	@echo "  setup          Copy .env.example to .env + chmod scripts"
 	@echo "  validate-env   Verify required .env variables are set"
+	@echo "  chmod-scripts  Fix permissions on all .sh files"
 	@echo ""
 	@echo "$(BOLD)All Services$(RST)"
-	@echo "  up             Start all services (detached)"
+	@echo "  up             chmod scripts + start all services (detached)"
 	@echo "  down           Stop and remove all containers"
 	@echo "  restart        Restart all services"
 	@echo "  ps             Show service status"
@@ -71,6 +72,8 @@ help:
 	@echo "$(BOLD)Infrastructure$(RST)"
 	@echo "  start-db       Start PostgreSQL + PgBouncer"
 	@echo "  stop-db        Stop PostgreSQL + PgBouncer"
+	@echo "  db-init        Run db-init: ensure PostgreSQL roles exist"
+	@echo "  logs-db-init   Tail logs for db-init"
 	@echo "  start-redis    Start Redis"
 	@echo "  stop-redis     Stop Redis"
 	@echo "  restart-redis  Restart Redis"
@@ -113,8 +116,16 @@ help:
 # =============================================================================
 # ENVIRONMENT
 # =============================================================================
-.PHONY: setup validate-env
-setup:
+.PHONY: setup validate-env chmod-scripts
+
+chmod-scripts:
+	@echo "$(BLU)Setting permissions on shell scripts...$(RST)"
+	@find . -name "*.sh" \
+	  -not -path "./.git/*" \
+	  -exec chmod 777 {} \;
+	@echo "$(GRN)Done.$(RST)"
+
+setup: chmod-scripts
 	@if [ -f "$(ENV_FILE)" ]; then \
 	  echo "$(YLW)$(ENV_FILE) already exists — skipping. Delete it first to reset.$(RST)"; \
 	else \
@@ -145,7 +156,7 @@ validate-env:
 # ALL SERVICES
 # =============================================================================
 .PHONY: up down restart ps pull build logs top stats
-up:
+up: chmod-scripts
 	$(COMPOSE) up -d
 
 down:
@@ -263,13 +274,28 @@ health-demo18c:
 # INFRASTRUCTURE
 # =============================================================================
 .PHONY: start-db stop-db start-redis stop-redis restart-redis
-.PHONY: logs-db logs-pgbouncer logs-redis
+.PHONY: logs-db logs-pgbouncer logs-redis db-init logs-db-init
 
 start-db:
 	$(COMPOSE) up -d db pgbouncer
 
 stop-db:
 	$(COMPOSE) stop db pgbouncer
+
+db-init:
+	@echo "$(BLU)Running db-init: ensuring PostgreSQL roles exist...$(RST)"
+	$(COMPOSE) up db-init
+	@EXIT=$$($(COMPOSE) ps db-init --format json 2>/dev/null | python3 -c \
+	  "import sys,json; d=json.load(sys.stdin); print(d[0].get('ExitCode',0) if isinstance(d,list) else d.get('ExitCode',0))" \
+	  2>/dev/null || echo 0); \
+	if [ "$$EXIT" = "0" ]; then \
+	  echo "$(GRN)db-init completed successfully.$(RST)"; \
+	else \
+	  echo "$(RED)db-init failed (exit code $$EXIT). Check: make logs-db-init$(RST)"; exit 1; \
+	fi
+
+logs-db-init:
+	$(COMPOSE) logs --tail=50 db-init
 
 start-redis:
 	$(COMPOSE) up -d redis
@@ -295,10 +321,10 @@ logs-redis:
 .PHONY: db-shell db-shell-direct db-list db-backup db-restore
 
 db-shell:
-	@echo "$(BLU)Connecting via PgBouncer (port $${PG_BOUNCER_PORT:-8613})...$(RST)"
+	@echo "$(BLU)Connecting via PgBouncer (port $${PG_BOUNCER_PORT:-8765})...$(RST)"
 	$(COMPOSE) exec pgbouncer psql \
 	  -h localhost \
-	  -p $${PG_BOUNCER_PORT:-8613} \
+	  -p $${PG_BOUNCER_PORT:-8765} \
 	  -U $${POSTGRES_USER:-odoo} \
 	  $${POSTGRES_DB:-postgres}
 
@@ -355,6 +381,46 @@ redis-flush-db:
 	else \
 	  echo "Aborted."; \
 	fi
+
+# =============================================================================
+# MODULES
+# =============================================================================
+.PHONY: upgrade upgrade-dry
+
+upgrade:
+	@if [ -z "$(MODULES)" ]; then echo "$(RED)Usage: make upgrade MODULES=<m1,m2> [SERVICE=lema|demo18e|demo18c]$(RST)"; exit 1; fi
+	@SVC=$${SERVICE:-lema}; \
+	case "$$SVC" in \
+	  lema)    URL="http://localhost:$${ODOO_LEMA_HTTP_PORT:-8018}";    DB="$${ODOO_LEMA_DB:-lema_production}" ;; \
+	  demo18e) URL="http://localhost:$${ODOO_DEMO18E_HTTP_PORT:-8118}"; DB="$${ODOO_DEMO18E_DB:-lema_demo18e}" ;; \
+	  demo18c) URL="http://localhost:$${ODOO_DEMO18C_HTTP_PORT:-8218}"; DB="$${ODOO_DEMO18C_DB:-lema_demo18c}" ;; \
+	  *) echo "$(RED)Unknown SERVICE: $$SVC (use lema|demo18e|demo18c)$(RST)"; exit 1 ;; \
+	esac; \
+	echo "$(BLU)Upgrading [$(MODULES)] on $$SVC ($$URL / $$DB)...$(RST)"; \
+	python3 $(UPGRADE_SCRIPT) \
+	  --url "$$URL" \
+	  --db "$$DB" \
+	  --user "$${ODOO_ADMIN_USER:-admin}" \
+	  --password "$${ODOO_ADMIN_PASSWORD}" \
+	  --modules "$(MODULES)"
+
+upgrade-dry:
+	@if [ -z "$(MODULES)" ]; then echo "$(RED)Usage: make upgrade-dry MODULES=<m1,m2> [SERVICE=lema|demo18e|demo18c]$(RST)"; exit 1; fi
+	@SVC=$${SERVICE:-lema}; \
+	case "$$SVC" in \
+	  lema)    URL="http://localhost:$${ODOO_LEMA_HTTP_PORT:-8018}";    DB="$${ODOO_LEMA_DB:-lema_production}" ;; \
+	  demo18e) URL="http://localhost:$${ODOO_DEMO18E_HTTP_PORT:-8118}"; DB="$${ODOO_DEMO18E_DB:-lema_demo18e}" ;; \
+	  demo18c) URL="http://localhost:$${ODOO_DEMO18C_HTTP_PORT:-8218}"; DB="$${ODOO_DEMO18C_DB:-lema_demo18c}" ;; \
+	  *) echo "$(RED)Unknown SERVICE: $$SVC (use lema|demo18e|demo18c)$(RST)"; exit 1 ;; \
+	esac; \
+	echo "$(BLU)[DRY RUN] Modules: $(MODULES) | Service: $$SVC | URL: $$URL | DB: $$DB$(RST)"; \
+	python3 $(UPGRADE_SCRIPT) \
+	  --url "$$URL" \
+	  --db "$$DB" \
+	  --user "$${ODOO_ADMIN_USER:-admin}" \
+	  --password "$${ODOO_ADMIN_PASSWORD}" \
+	  --modules "$(MODULES)" \
+	  --dry-run
 
 # =============================================================================
 # CLEANUP
