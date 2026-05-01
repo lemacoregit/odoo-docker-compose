@@ -138,8 +138,6 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
     ports:
       - "${ODOO_LEMA_HTTP_PORT}:8069"
       - "${ODOO_LEMA_LONGPOLLING_PORT}:8072"
@@ -201,8 +199,6 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
     ports:
       - "${ODOO_DEMO18E_HTTP_PORT}:8069"
       - "${ODOO_DEMO18E_LONGPOLLING_PORT}:8072"
@@ -264,8 +260,6 @@ services:
         condition: service_healthy
       pgbouncer:
         condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
     ports:
       - "${ODOO_DEMO18C_HTTP_PORT}:8069"
       - "${ODOO_DEMO18C_LONGPOLLING_PORT}:8072"
