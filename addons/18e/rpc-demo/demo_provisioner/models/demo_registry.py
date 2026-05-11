@@ -1,8 +1,10 @@
 import secrets
 import logging
 import time
+import threading
 import psycopg2
 
+import odoo
 import xmlrpc.client
 from dateutil.relativedelta import relativedelta
 from odoo import models, fields, api, exceptions
@@ -445,7 +447,7 @@ class DemoRegistry(models.Model):
     # ── Action Buttons ───────────────────────────────────────────────────────
 
     def button_provision(self):
-        """Full provisioning: DB creation → module install → user setup → backup → token."""
+        """Start async provisioning in a background thread. Returns immediately."""
         self.ensure_one()
         if self.state == 'active':
             raise exceptions.UserError(
@@ -457,62 +459,79 @@ class DemoRegistry(models.Model):
         self.write({'state': 'provisioning', 'provision_log': '[INFO] Starting provisioning...\n'})
         self.env.cr.commit()
 
-        try:
-            log_parts = []
-            client = _docker_client()
-            container = self._get_container(client)
+        record_id = self.id
+        dbname = self.env.cr.dbname
+        uid = self.env.uid
 
-            self._validate_module_exists(container)
-            log_parts.append('[OK] Module found in demo container.')
+        def _background():
+            with odoo.registry(dbname).cursor() as cr:
+                env = odoo.api.Environment(cr, uid, {})
+                rec = env['demo.registry'].browse(record_id)
 
-            self._create_pg_database()
-            log_parts.append(f'[OK] Database "{self.db_name}" created.')
+                def _log(msg):
+                    rec.provision_log = (rec.provision_log or '') + msg + '\n'
+                    rec.flush_recordset()
+                    cr.commit()
 
-            install_log = self._install_modules_in_demo(container)
-            log_parts.append('[OK] Modules installed successfully.')
-            log_parts.append('--- Install Log (tail) ---')
-            log_parts.append(install_log[-3000:])
+                try:
+                    client = _docker_client()
+                    container = rec._get_container(client)
 
-            self._create_demo_user()
-            log_parts.append(f'[OK] Demo user "{self.demo_user_login}" ready.')
+                    rec._validate_module_exists(container)
+                    _log('[OK] Module found in demo container.')
 
-            self._save_backup(container)
-            log_parts.append('[OK] Clean-state backup saved.')
+                    rec._create_pg_database()
+                    _log(f'[OK] Database "{rec.db_name}" created.')
 
-            token = secrets.token_urlsafe(40)
-            expiry = fields.Datetime.now() + relativedelta(days=self.token_expiry_days)
-            self.write({
-                'state': 'active',
-                'token': token,
-                'token_expiry': expiry,
-                'provision_log': '\n'.join(log_parts),
-            })
-            self.message_post(body=f'Demo provisioned. URL: {self.demo_url}')
+                    _log('[INFO] Installing modules — this may take several minutes...')
+                    install_log = rec._install_modules_in_demo(container)
+                    _log('[OK] Modules installed successfully.')
+                    _log('--- Install Log (tail) ---')
+                    _log(install_log[-3000:])
 
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': 'Provisioning Complete!',
-                    'message': f'Demo URL: {self.demo_url}',
-                    'type': 'success',
-                    'sticky': True,
-                },
-            }
+                    rec._create_demo_user()
+                    _log(f'[OK] Demo user "{rec.demo_user_login}" ready.')
 
-        except exceptions.UserError:
-            self.write({'state': 'error'})
-            raise
-        except Exception as e:
-            _logger.exception('Provisioning error for %s', self.module_name)
-            self.write({
-                'state': 'error',
-                'provision_log': (self.provision_log or '') + f'\n[ERROR] {e}',
-            })
-            raise exceptions.UserError(f'Provisioning failed:\n{e}')
+                    rec._save_backup(container)
+                    _log('[OK] Clean-state backup saved.')
+
+                    token = secrets.token_urlsafe(40)
+                    expiry = fields.Datetime.now() + relativedelta(days=rec.token_expiry_days)
+                    rec.write({
+                        'state': 'active',
+                        'token': token,
+                        'token_expiry': expiry,
+                    })
+                    rec.message_post(body=f'Demo provisioned. URL: {rec.demo_url}')
+                    cr.commit()
+                    _logger.info('Provisioning complete for %s', rec.db_name)
+
+                except Exception as e:
+                    _logger.exception('Background provisioning error for %s', rec.module_name)
+                    try:
+                        rec.write({
+                            'state': 'error',
+                            'provision_log': (rec.provision_log or '') + f'\n[ERROR] {e}',
+                        })
+                        cr.commit()
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_background, daemon=True).start()
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Provisioning Started',
+                'message': 'Running in background. Refresh the page to monitor progress.',
+                'type': 'info',
+                'sticky': False,
+            },
+        }
 
     def button_reset(self):
-        """Restore the demo database from the clean-state backup."""
+        """Start async database reset from clean-state backup."""
         self.ensure_one()
         if self.state not in ('active', 'deactivated'):
             raise exceptions.UserError('Only active or deactivated demos can be reset.')
@@ -528,38 +547,78 @@ class DemoRegistry(models.Model):
                 'Re-provision the demo to create a new backup.'
             )
 
-        self._terminate_and_drop_db()
+        self.write({'state': 'provisioning', 'provision_log': '[INFO] Starting reset...\n'})
+        self.env.cr.commit()
 
-        conn = self._get_pg_connection()
-        conn.autocommit = True
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f'CREATE DATABASE "{self.db_name}" '
-                    f'OWNER "{config.get("db_user", "odoo")}"'
-                )
-        finally:
-            conn.close()
+        record_id = self.id
+        dbname = self.env.cr.dbname
+        uid = self.env.uid
 
-        self._restore_backup(container)
+        def _background():
+            with odoo.registry(dbname).cursor() as cr:
+                env = odoo.api.Environment(cr, uid, {})
+                rec = env['demo.registry'].browse(record_id)
 
-        new_token = secrets.token_urlsafe(40)
-        new_expiry = fields.Datetime.now() + relativedelta(days=self.token_expiry_days)
-        self.write({
-            'last_reset': fields.Datetime.now(),
-            'state': 'active',
-            'token': new_token,
-            'token_expiry': new_expiry,
-        })
-        self.message_post(body='Demo reset to initial state. New token generated.')
+                def _log(msg):
+                    rec.provision_log = (rec.provision_log or '') + msg + '\n'
+                    rec.flush_recordset()
+                    cr.commit()
+
+                try:
+                    c = _docker_client()
+                    cont = rec._get_container(c)
+
+                    rec._terminate_and_drop_db()
+                    _log(f'[OK] Old database "{rec.db_name}" dropped.')
+
+                    conn = rec._get_pg_connection()
+                    conn.autocommit = True
+                    try:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                f'CREATE DATABASE "{rec.db_name}" '
+                                f'OWNER "{config.get("db_user", "odoo")}"'
+                            )
+                    finally:
+                        conn.close()
+                    _log(f'[OK] Fresh database "{rec.db_name}" created.')
+
+                    _log('[INFO] Restoring backup — this may take a few minutes...')
+                    rec._restore_backup(cont)
+
+                    new_token = secrets.token_urlsafe(40)
+                    new_expiry = fields.Datetime.now() + relativedelta(days=rec.token_expiry_days)
+                    rec.write({
+                        'last_reset': fields.Datetime.now(),
+                        'state': 'active',
+                        'token': new_token,
+                        'token_expiry': new_expiry,
+                    })
+                    rec.message_post(body='Demo reset to initial state. New token generated.')
+                    cr.commit()
+                    _log('[OK] Reset complete.')
+
+                except Exception as e:
+                    _logger.exception('Background reset error for %s', rec.module_name)
+                    try:
+                        rec.write({
+                            'state': 'error',
+                            'provision_log': (rec.provision_log or '') + f'\n[ERROR] {e}',
+                        })
+                        cr.commit()
+                    except Exception:
+                        pass
+
+        threading.Thread(target=_background, daemon=True).start()
 
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
-                'title': 'Reset Successful',
-                'message': f'Database {self.db_name} has been reset.',
-                'type': 'success',
+                'title': 'Reset Started',
+                'message': 'Running in background. Refresh the page to monitor progress.',
+                'type': 'info',
+                'sticky': False,
             },
         }
 
