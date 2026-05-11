@@ -27,6 +27,22 @@ class DemoServer(models.Model):
         default='/etc/odoo/odoo.conf',
         help='Path to odoo.conf inside the Docker container.',
     )
+    pg_host = fields.Char(
+        string='PostgreSQL Host (Direct)',
+        required=True,
+        default='db',
+        help=(
+            'Direct PostgreSQL hostname (bypass PgBouncer). '
+            'Used for module installation (--stop-after-init) and pg_dump/pg_restore. '
+            'e.g.: db (Docker Compose service name)'
+        ),
+    )
+    pg_port = fields.Integer(
+        string='PostgreSQL Port (Direct)',
+        required=True,
+        default=5432,
+        help='Direct PostgreSQL port. Default: 5432.',
+    )
     base_demo_url = fields.Char(
         string='Demo Base URL',
         required=True,

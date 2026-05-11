@@ -35,6 +35,8 @@
                         <group string="Network">
                             <field name="base_demo_url" placeholder="https://demo.lemacore.com"/>
                             <field name="demo_xmlrpc_url" placeholder="http://odoo-demo18e:8069"/>
+                            <field name="pg_host" placeholder="db"/>
+                            <field name="pg_port"/>
                         </group>
                     </group>
 
