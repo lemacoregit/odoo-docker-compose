@@ -74,6 +74,8 @@
                             <field name="extra_modules"
                                    placeholder="sale,purchase,stock (optional)"
                                    readonly="state in ('active','provisioning','deactivated')"/>
+                            <field name="with_demo"
+                                   readonly="state in ('active','provisioning','deactivated')"/>
                             <field name="db_name"/>
                         </group>
                         <group string="Demo Access">

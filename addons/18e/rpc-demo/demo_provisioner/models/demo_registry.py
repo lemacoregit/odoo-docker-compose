@@ -159,6 +159,11 @@ class DemoRegistry(models.Model):
     demo_user_password = fields.Char(string='Demo Password', default=DEMO_USER_PASSWORD)
     demo_admin_login = fields.Char(string='Admin Login', default='admin')
     demo_admin_password = fields.Char(string='Admin Password', default='admin')
+    with_demo = fields.Boolean(
+        string='Include Demo Data',
+        default=True,
+        help='Install Odoo demo data alongside the module. Uncheck for a clean database without sample records.',
+    )
     provision_log = fields.Text(string='Provisioning Log', readonly=True)
     last_reset = fields.Datetime(string='Last Reset', readonly=True)
     notes = fields.Text(string='Notes')
@@ -294,7 +299,7 @@ class DemoRegistry(models.Model):
             '--db_user', config.get('db_user', 'odoo'),
             '--db_password', config.get('db_password', ''),
             '-i', modules,
-            '--without-demo', 'False',
+            '--without-demo', 'all' if not self.with_demo else 'False',
             '--stop-after-init',
             '--no-http',
         ]
