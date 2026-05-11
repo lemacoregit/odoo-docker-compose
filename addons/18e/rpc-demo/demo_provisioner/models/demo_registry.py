@@ -160,6 +160,7 @@ class DemoRegistry(models.Model):
     provision_log = fields.Text(string='Provisioning Log', readonly=True)
     last_reset = fields.Datetime(string='Last Reset', readonly=True)
     notes = fields.Text(string='Notes')
+    backup_ids = fields.One2many('demo.backup', 'registry_id', string='Snapshots')
 
     # ── Computed ─────────────────────────────────────────────────────────────
 
@@ -594,6 +595,64 @@ class DemoRegistry(models.Model):
 
         self.write({'state': 'deactivated', 'token': False, 'token_expiry': False, 'demo_url': False})
         self.message_post(body='Demo deactivated and database deleted.')
+
+    def button_save_snapshot(self):
+        """Save current database state as a named snapshot (.dump inside container)."""
+        self.ensure_one()
+        if self.state != 'active':
+            raise exceptions.UserError('Only active demos can be snapshotted.')
+
+        client = _docker_client()
+        container = self._get_container(client)
+
+        slug = fields.Datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_dir = '/opt/demo/backups'
+        backup_file = f'{backup_dir}/{self.db_name}_{slug}.dump'
+
+        _exec(container, ['mkdir', '-p', backup_dir])
+        _exec(
+            container,
+            [
+                'pg_dump',
+                '-h', config.get('db_host', 'postgres'),
+                '-U', config.get('db_user', 'odoo'),
+                '--format=custom', '--compress=6', '--no-owner',
+                f'--file={backup_file}',
+                self.db_name,
+            ],
+            env={'PGPASSWORD': config.get('db_password', ''), 'LANG': 'C'},
+        )
+
+        snap = self.env['demo.backup'].create({
+            'name': f'Snapshot {fields.Datetime.now().strftime("%Y-%m-%d %H:%M")}',
+            'registry_id': self.id,
+            'backup_file': backup_file,
+            'state': 'ready',
+        })
+        self.message_post(
+            body=f'Snapshot saved: <b>{snap.name}</b> → <code>{backup_file}</code>'
+        )
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': 'Snapshot Saved',
+                'message': f'Snapshot "{snap.name}" saved successfully.',
+                'type': 'success',
+            },
+        }
+
+    def button_download_backup(self):
+        """Redirect to HTTP download endpoint — generates Odoo-compatible .zip on-the-fly."""
+        self.ensure_one()
+        if self.state != 'active':
+            raise exceptions.UserError('Only active demos can be downloaded.')
+        return {
+            'type': 'ir.actions.act_url',
+            'url': f'/demo/backup/download/{self.id}',
+            'target': 'self',
+        }
 
     def button_set_to_draft(self):
         """Allow re-provisioning by resetting state to draft."""

@@ -39,6 +39,15 @@
                             class="btn-warning"
                             invisible="state not in ('provisioning','error')"
                             confirm="This will cancel the provisioning and drop any partial database. Reset to Draft?"/>
+                    <button name="button_save_snapshot"
+                            type="object"
+                            string="Save Snapshot"
+                            invisible="state != 'active'"
+                            confirm="Save the current database state as a snapshot? This will run pg_dump inside the demo container."/>
+                    <button name="button_download_backup"
+                            type="object"
+                            string="Download Backup"
+                            invisible="state != 'active'"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,active,deactivated"/>
                 </header>
@@ -129,6 +138,28 @@
                                    readonly="1"
                                    nolabel="1"
                                    style="font-family: monospace; font-size: 12px; min-height: 200px;"/>
+                        </page>
+                        <page string="Snapshots" name="snapshots">
+                            <field name="backup_ids" nolabel="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="create_date" string="Created" readonly="1"/>
+                                    <field name="state" widget="badge"
+                                           decoration-success="state == 'ready'"
+                                           decoration-danger="state == 'failed'"/>
+                                    <field name="note" optional="show"/>
+                                    <button name="button_restore_snapshot"
+                                            type="object"
+                                            string="Restore"
+                                            icon="fa-undo"
+                                            confirm="Restore this snapshot? Current demo data will be replaced."/>
+                                    <button name="button_delete_snapshot"
+                                            type="object"
+                                            string="Delete"
+                                            icon="fa-trash"
+                                            confirm="Delete this snapshot permanently? This cannot be undone."/>
+                                </list>
+                            </field>
                         </page>
                         <page string="Notes" name="notes">
                             <field name="notes" nolabel="1"

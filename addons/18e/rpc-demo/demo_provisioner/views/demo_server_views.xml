@@ -43,6 +43,11 @@
                                placeholder="/mnt/lema-demo18/addons/apps1,/mnt/lema-demo18/addons/apps2"/>
                     </group>
 
+                    <group string="Backup Settings">
+                        <field name="filestore_base"
+                               placeholder="/var/lib/odoo/filestore"/>
+                    </group>
+
                     <group string="Notes">
                         <field name="notes" nolabel="1"
                                placeholder="Any notes about this server configuration..."/>

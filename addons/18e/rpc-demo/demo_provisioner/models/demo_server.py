@@ -56,6 +56,11 @@ class DemoServer(models.Model):
             'e.g.: /mnt/18e/demo-addons/apps1,/mnt/18e/demo-addons/apps2'
         ),
     )
+    filestore_base = fields.Char(
+        string='Filestore Base Path',
+        default='/var/lib/odoo/filestore',
+        help='Path to Odoo filestore directory inside the demo container. Used when generating .zip backups.',
+    )
     active = fields.Boolean(default=True)
     notes = fields.Text(string='Notes')
 
