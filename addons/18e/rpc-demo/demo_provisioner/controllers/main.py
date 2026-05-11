@@ -1,5 +1,7 @@
+import json
 import logging
 import os
+import psycopg2
 import tarfile
 import tempfile
 import zipfile
@@ -10,6 +12,50 @@ from odoo.http import request
 from odoo.tools import config
 
 _logger = logging.getLogger(__name__)
+
+
+def _build_manifest(registry):
+    """
+    Generate an Odoo-compatible manifest.json by querying the demo database directly.
+    Matches the format produced by Odoo's own backup tool (odoo/service/db.py).
+    """
+    conn = psycopg2.connect(
+        host=config.get('db_host', 'localhost'),
+        port=int(config.get('db_port', 5432)),
+        user=config.get('db_user', 'odoo'),
+        password=config.get('db_password', ''),
+        dbname=registry.db_name,
+        connect_timeout=10,
+    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT current_setting('server_version')")
+            pg_version = cur.fetchone()[0]
+
+            cur.execute(
+                'SELECT name, latest_version FROM ir_module_module WHERE state = %s',
+                ('installed',),
+            )
+            modules = {row[0]: row[1] for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+    odoo_version = (registry.server_id.odoo_version or '18.0').strip()
+    try:
+        major = int(odoo_version.split('.')[0])
+    except (ValueError, IndexError):
+        major = 18
+
+    manifest = {
+        'odoo_dump': '1',
+        'db_name': registry.db_name,
+        'version': odoo_version,
+        'version_info': [major, 0, 0, 'final', 0, ''],
+        'major_version': odoo_version,
+        'pg_version': pg_version,
+        'modules': modules,
+    }
+    return json.dumps(manifest, indent=4)
 
 
 class DemoProvisionerController(http.Controller):
@@ -61,7 +107,11 @@ class DemoProvisionerController(http.Controller):
             os.close(tmp_fd)
 
             with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
-                # ── 1. pg_dump plain SQL → stdout (no file written in container) ──
+                # ── 1. manifest.json (Odoo-compatible metadata) ──────────────
+                manifest_json = _build_manifest(registry)
+                zf.writestr('manifest.json', manifest_json)
+
+                # ── 2. pg_dump plain SQL → stdout (nothing written in container) ──
                 result = container.exec_run(
                     [
                         'pg_dump',
@@ -86,7 +136,7 @@ class DemoProvisionerController(http.Controller):
                     )
                 zf.writestr('dump.sql', result.output or b'')
 
-                # ── 2. filestore (skipped silently if directory not found) ──
+                # ── 3. filestore (skipped gracefully if directory not found) ──
                 filestore_base = (
                     registry.server_id.filestore_base or '/var/lib/odoo/filestore'
                 ).rstrip('/')
@@ -116,6 +166,12 @@ class DemoProvisionerController(http.Controller):
                             fobj = tf.extractfile(member)
                             if fobj:
                                 zf.writestr(f'filestore/{parts[1]}', fobj.read())
+                else:
+                    _logger.warning(
+                        'Filestore not found at %s for db %s — '
+                        'check "Filestore Base Path" in Demo Server settings.',
+                        filestore_path, registry.db_name,
+                    )
 
             file_size = os.path.getsize(tmp_path)
             with open(tmp_path, 'rb') as f:
