@@ -93,15 +93,9 @@
                     </group>
 
                     <group string="Server Configuration">
-                        <field name="custom_addons_path"
-                               placeholder="/mnt/lema-demo18/addons/apps1,/mnt/lema-demo18/addons/apps2"
-                               readonly="state in ('active','provisioning','deactivated')"/>
-                        <field name="base_demo_url"
-                               placeholder="https://demo.lemacore.com"
-                               readonly="state in ('active','provisioning','deactivated')"/>
-                        <field name="demo_xmlrpc_url"
-                               placeholder="http://odoo18-lema-demo:8069"
-                               readonly="state in ('active','provisioning','deactivated')"/>
+                        <field name="custom_addons_path"/>
+                        <field name="base_demo_url"/>
+                        <field name="demo_xmlrpc_url"/>
                     </group>
 
                     <group string="Administrator Credentials">

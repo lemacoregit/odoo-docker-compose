@@ -111,18 +111,24 @@ class DemoRegistry(models.Model):
     )
     custom_addons_path = fields.Char(
         string='Custom Addons Paths',
-        required=True,
-        help='Comma-separated paths inside the demo container.',
+        related='server_id.custom_addons_path',
+        store=False,
+        readonly=True,
+        help='Comma-separated paths inside the demo container — synced from Demo Server.',
     )
     base_demo_url = fields.Char(
         string='Demo Base URL',
-        required=True,
-        help='Public base URL, e.g.: https://demo.lemacore.com',
+        related='server_id.base_demo_url',
+        store=False,
+        readonly=True,
+        help='Public base URL — synced from Demo Server.',
     )
     demo_xmlrpc_url = fields.Char(
         string='Demo XML-RPC URL',
-        required=True,
-        help='Internal Docker URL for XML-RPC, e.g.: http://odoo-demo18e:8069',
+        related='server_id.demo_xmlrpc_url',
+        store=False,
+        readonly=True,
+        help='Internal Docker URL for XML-RPC — always synced from Demo Server config.',
     )
     db_name = fields.Char(
         string='Database Name',
@@ -190,15 +196,6 @@ class DemoRegistry(models.Model):
                 rec.demo_url = f'{rec.base_demo_url}/demo/access?token={rec.token}'
             else:
                 rec.demo_url = False
-
-    # ── Onchange ─────────────────────────────────────────────────────────────
-
-    @api.onchange('server_id')
-    def _onchange_server_id(self):
-        if self.server_id:
-            self.base_demo_url = self.server_id.base_demo_url
-            self.demo_xmlrpc_url = self.server_id.demo_xmlrpc_url
-            self.custom_addons_path = self.server_id.custom_addons_path
 
     # ── Constraints ──────────────────────────────────────────────────────────
 
@@ -311,7 +308,7 @@ class DemoRegistry(models.Model):
         return output
 
     def _wait_for_demo_server(self, max_wait=60):
-        """Poll /web/health until the demo Odoo instance is ready."""
+        """Poll /web/health until the demo Odoo instance is ready. Raises on timeout."""
         import urllib.request
         url = f'{self.demo_xmlrpc_url}/web/health'
         for _ in range(max_wait // 2):
@@ -320,7 +317,11 @@ class DemoRegistry(models.Model):
                 return True
             except Exception:
                 time.sleep(2)
-        return False
+        raise exceptions.UserError(
+            f'Demo server not reachable after {max_wait}s: {url}\n'
+            'Check that the Demo XML-RPC URL uses the internal Docker port (e.g. :8069), '
+            'not the external host port.'
+        )
 
     def _create_demo_user(self):
         """Create or update the demo user on the freshly provisioned database."""
