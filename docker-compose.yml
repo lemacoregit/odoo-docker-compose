@@ -1,12 +1,12 @@
 networks:
-  lema-odoo-net:
+  odoo-net:
     driver: bridge
 
 services:
 
   db:
-    image: postgres:15
-    container_name: postgres-15-lema
+    image: postgres:16
+    container_name: postgres-16
     ports:
       - "${POSTGRES_PORT}:5432"
     environment:
@@ -23,7 +23,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - lema-odoo-net
+      - odoo-net
     logging:
       driver: "json-file"
       options:
@@ -34,7 +34,7 @@ services:
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
-    container_name: pgbouncer-lema
+    container_name: pgbouncer
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -64,7 +64,7 @@ services:
       retries: 5
       start_period: 15s
     networks:
-      - lema-odoo-net
+      - odoo-net
     logging:
       driver: "json-file"
       options:
@@ -75,7 +75,7 @@ services:
 
   redis:
     image: redis:8.2.5
-    container_name: redis-lema-session
+    container_name: redis-session
     ports:
       - "${REDIS_EXTERNAL_PORT}:6379"
     command:
@@ -92,7 +92,7 @@ services:
       retries: 5
       start_period: 15s
     networks:
-      - lema-odoo-net
+      - odoo-net
     deploy:
       resources:
         limits:
@@ -109,9 +109,11 @@ services:
     restart: always
 
   odoo-lema:
-    image: docker.io/mraldirs1231/odoo18e:latest
-    user: root
-    container_name: odoo-18-lema
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: odoo
+    container_name: odoo-19-lema
     depends_on:
       redis:
         condition: service_healthy
@@ -140,17 +142,14 @@ services:
       ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS: '${ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS}'
     volumes:
       - ./entrypoint.sh:/entrypoint.sh
-      - ./etc/conf/lema.conf:/etc/odoo/odoo.conf
+      - ./etc/conf/odoo.conf:/etc/odoo/odoo.conf
       - ./etc/logs:/etc/odoo/logs
-      - ./etc/addons:/etc/odoo/addons
       - ./etc/filestore:/etc/odoo/filestore
       - ./etc/sessions:/etc/odoo/sessions
-      - ./etc/requirements.txt:/etc/odoo/requirements.txt
-      - ./addons/redis:/mnt/redis-addons
-      - ./addons/18e/bpass:/mnt/18e/bpass-addons
-      - ./addons/18e/default:/mnt/18e/default-addons
-      - ./addons/18e/rpc-demo:/mnt/18e/rpc-demo
-      - ./addons/18e/lema:/mnt/18e/lema-addons
+      - ./etc/addons:/etc/odoo/addons
+      - ./addons/apps:/mnt/apps-addons
+      - ./addons/default:/mnt/default-addons
+      - ./addons/custom:/mnt/custom-addons
       - /var/run/docker.sock:/var/run/docker.sock
       - /usr/bin/docker:/usr/bin/docker:ro
     healthcheck:
@@ -160,129 +159,7 @@ services:
       retries: 5
       start_period: 300s
     networks:
-      - lema-odoo-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
-        tag: "{{.Name}}"
-    restart: always
-
-  odoo-demo18e:
-    image: docker.io/mraldirs1231/odoo18e:latest
-    user: root
-    container_name: odoo-18e-demo
-    depends_on:
-      redis:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-    ports:
-      - "${ODOO_DEMO18E_HTTP_PORT}:8069"
-      - "${ODOO_DEMO18E_LONGPOLLING_PORT}:8072"
-    environment:
-      HOST: pgbouncer
-      PORT: "5432"
-      USER: '${POSTGRES_USER}'
-      PASSWORD: '${POSTGRES_PASSWORD}'
-      DB: '${POSTGRES_DB:-postgres}'
-      DEMO_ERP_DB_NAME: '${DEMO_ERP_DB_NAME:-lema_production}'
-      REDIS_PASSWORD: '${ODOO_SESSION_REDIS_PASSWORD}'
-      ODOO_SESSION_REDIS: '${ODOO_SESSION_REDIS}'
-      ODOO_SESSION_REDIS_HOST: '${ODOO_SESSION_REDIS_HOST}'
-      ODOO_SESSION_REDIS_PORT: '${ODOO_SESSION_REDIS_PORT}'
-      ODOO_SESSION_REDIS_PASSWORD: '${ODOO_SESSION_REDIS_PASSWORD}'
-      ODOO_SESSION_REDIS_SSL: '${ODOO_SESSION_REDIS_SSL}'
-      ODOO_SESSION_REDIS_SSL_CERT_REQS: '${ODOO_SESSION_REDIS_SSL_CERT_REQS}'
-      ODOO_SESSION_REDIS_CLUSTER: '${ODOO_SESSION_REDIS_CLUSTER}'
-      ODOO_SESSION_REDIS_URL: '${ODOO_SESSION_REDIS_URL}'
-      ODOO_SESSION_REDIS_PREFIX: '${ODOO_SESSION_REDIS_PREFIX}'
-      ODOO_SESSION_REDIS_EXPIRATION: '${ODOO_SESSION_REDIS_EXPIRATION}'
-      ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS: '${ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS}'
-    volumes:
-      - ./entrypoint.sh:/entrypoint.sh
-      - ./etc/conf/18e.conf:/etc/odoo/odoo.conf
-      - ./etc/logs:/etc/odoo/logs
-      - ./etc/addons:/etc/odoo/addons
-      - ./etc/filestore:/etc/odoo/filestore
-      - ./etc/sessions:/etc/odoo/sessions
-      - ./etc/requirements.txt:/etc/odoo/requirements.txt
-      - ./addons/redis:/mnt/redis-addons
-      - ./addons/18e/bpass:/mnt/18e/bpass-addons
-      - ./addons/18e/default:/mnt/18e/default-addons
-      - ./addons/18e/rpc-demo:/mnt/18e/rpc-demo
-      - ./addons/18e/demo/apps1:/mnt/18e/demo-addons/apps1
-      - ./addons/18e/demo/apps2:/mnt/18e/demo-addons/apps2
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/health || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 5
-      start_period: 300s
-    networks:
-      - lema-odoo-net
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "20m"
-        max-file: "5"
-        tag: "{{.Name}}"
-    restart: always
-
-  odoo-demo18c:
-    image: odoo:18.0
-    user: root
-    container_name: odoo-18c-demo
-    depends_on:
-      redis:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
-    ports:
-      - "${ODOO_DEMO18C_HTTP_PORT}:8069"
-      - "${ODOO_DEMO18C_LONGPOLLING_PORT}:8072"
-    environment:
-      HOST: pgbouncer
-      PORT: "5432"
-      USER: '${POSTGRES_USER}'
-      PASSWORD: '${POSTGRES_PASSWORD}'
-      DB: '${POSTGRES_DB:-postgres}'
-      DEMO_ERP_DB_NAME: '${DEMO_ERP_DB_NAME:-lema_production}'
-      REDIS_PASSWORD: '${ODOO_SESSION_REDIS_PASSWORD}'
-      ODOO_SESSION_REDIS: '${ODOO_SESSION_REDIS}'
-      ODOO_SESSION_REDIS_HOST: '${ODOO_SESSION_REDIS_HOST}'
-      ODOO_SESSION_REDIS_PORT: '${ODOO_SESSION_REDIS_PORT}'
-      ODOO_SESSION_REDIS_PASSWORD: '${ODOO_SESSION_REDIS_PASSWORD}'
-      ODOO_SESSION_REDIS_SSL: '${ODOO_SESSION_REDIS_SSL}'
-      ODOO_SESSION_REDIS_SSL_CERT_REQS: '${ODOO_SESSION_REDIS_SSL_CERT_REQS}'
-      ODOO_SESSION_REDIS_CLUSTER: '${ODOO_SESSION_REDIS_CLUSTER}'
-      ODOO_SESSION_REDIS_URL: '${ODOO_SESSION_REDIS_URL}'
-      ODOO_SESSION_REDIS_PREFIX: '${ODOO_SESSION_REDIS_PREFIX}'
-      ODOO_SESSION_REDIS_EXPIRATION: '${ODOO_SESSION_REDIS_EXPIRATION}'
-      ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS: '${ODOO_SESSION_REDIS_EXPIRATION_ANONYMOUS}'
-    volumes:
-      - ./entrypoint.sh:/entrypoint.sh
-      - ./etc/conf/18c.conf:/etc/odoo/odoo.conf
-      - ./etc/logs:/etc/odoo/logs
-      - ./etc/addons:/etc/odoo/addons
-      - ./etc/filestore:/etc/odoo/filestore
-      - ./etc/sessions:/etc/odoo/sessions
-      - ./etc/requirements.txt:/etc/odoo/requirements.txt
-      - ./addons/redis:/mnt/redis-addons
-      - ./addons/18e/rpc-demo:/mnt/18e/rpc-demo
-      - ./addons/18c/default:/mnt/18c/default-addons
-      - ./addons/18c/demo/apps1:/mnt/18c/demo-addons/apps1
-      - ./addons/18c/demo/apps2:/mnt/18c/demo-addons/apps2
-      - ./addons/18c/demo/ezra-shop:/mnt/18c/demo-addons/ezra-shop
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/health || exit 1"]
-      interval: 30s
-      timeout: 15s
-      retries: 5
-      start_period: 300s
-    networks:
-      - lema-odoo-net
+      - odoo-net
     logging:
       driver: "json-file"
       options:
