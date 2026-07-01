@@ -112,7 +112,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    user: odoo
+    user: root
     container_name: odoo-19-lema
     depends_on:
       redis:
