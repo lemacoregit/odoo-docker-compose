@@ -313,10 +313,10 @@ db-shell:
 
 db-shell-direct:
 	@echo "$(BLU)Connecting directly to PostgreSQL...$(RST)"
-	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-odoo}
+	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-odoo} -d $${POSTGRES_DB:-postgres}
 
 db-list:
-	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-odoo} -c "\l"
+	$(COMPOSE) exec db psql -U $${POSTGRES_USER:-odoo} -d $${POSTGRES_DB:-postgres} -c "\l"
 
 db-backup:
 	@if [ -z "$(DB)" ]; then echo "$(RED)Usage: make db-backup DB=<database_name>$(RST)"; exit 1; fi
