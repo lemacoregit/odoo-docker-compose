@@ -5,7 +5,7 @@
 {
     "name": "Lema - Sessions in Redis",
     "summary": "Store web sessions in Redis",
-    "version": "18.0.1.0.0",
+    "version": "19.0.1.0.0",
     "author": "Lema Core Technologies",
     "license": "OPL-3",
     "category": "Extra Tools",
