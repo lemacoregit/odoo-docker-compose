@@ -1,4 +1,4 @@
-FROM mraldirs1231/lemaerp19e:19.0.2
+FROM mraldirs1231/lemaerp19e:latest
 
 USER root
 
