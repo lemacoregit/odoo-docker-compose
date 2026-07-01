@@ -48,12 +48,12 @@ class RedisSessionStore(SessionStore):
     def save(self, session):
         key = self.build_key(session.sid)
 
-        # allow to set a custom expiration for a session
-        # such as a very short one for monitoring requests
+        # Odoo's Session class uses __slots__ without an `expiration`
+        # attribute (Odoo 19+), so per-session overrides are not possible.
         if session.uid:
-            expiration = session.expiration or self.expiration
+            expiration = self.expiration
         else:
-            expiration = session.expiration or self.anon_expiration
+            expiration = self.anon_expiration
         if _logger.isEnabledFor(logging.DEBUG):
             if session.uid:
                 user_msg = f"user '{session.login}' (id: {session.uid})"
