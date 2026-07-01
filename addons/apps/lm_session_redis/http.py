@@ -108,5 +108,10 @@ if is_true(os.getenv("ODOO_SESSION_REDIS")):
             port,
         )
     http.Application.session_store = session_store
+    # lazy_property (functools.cached_property since Odoo 19) requires
+    # __set_name__ to run, which only happens automatically for attributes
+    # defined in the class body. Since this is assigned dynamically, call
+    # it explicitly so the descriptor knows its own attribute name.
+    session_store.__set_name__(http.Application, "session_store")
     # clean the existing sessions on the file system
     purge_fs_sessions(config.session_dir)
