@@ -148,6 +148,7 @@ services:
       - ./etc/sessions:/etc/odoo/sessions
       - ./etc/addons:/etc/odoo/addons
       - ./addons/apps:/mnt/apps-addons
+      - ./addons/bpass:/mnt/bpass-addons
       - ./addons/default:/mnt/default-addons
       - ./addons/custom:/mnt/custom-addons
       - /var/run/docker.sock:/var/run/docker.sock
